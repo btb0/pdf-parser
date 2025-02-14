@@ -1,5 +1,6 @@
 import fs from "fs";
 import PDFParser from "pdf2json";
+import { decode } from "punycode";
 const pdfParser = new PDFParser();
 
 // TEST PDF PATH
@@ -8,13 +9,35 @@ const testPdf = 'TESTPACKINGLIST.pdf';
 pdfParser.on("pdfParser_dataError", (errData) =>
     console.error("Error parsing PDF: ", errData.parserError)
 );
+
 // on("pdfParser_dataReady") is called when the parser finishes parsing the PDF
 pdfParser.on("pdfParser_dataReady", (pdfData) => {
-    
-    console.log("raw data ==>", pdfData);
+    const pages = pdfData.Pages; // Each page in the PDF
+    const tableRows = [];
+    // Tells the parser when the table starts to avoid the unwanted information. Ex. Address, Shipper Address, etc. Initialized to false
+    let isTableStarted = false;
+
+    // Looping through each page
+    pages.forEach(page => {
+        let tableStartY;
+
+        // Looks for "Seq" in the tables headers (at the top right of each packing list) signifying the start of the table
+        page.Texts.forEach(text => {
+            // Each text object in the extracted JSON has an "R" array, which contains the actual text content --> the text itself, as well as other information such as 
+            // style index, font weight etc. "R" stands for runs of text. So forEach run...
+            text.R.forEach(run => {
+                // Each "run" contains "T" which is the actual text itself. Converting to lowercase and decoding just to limit chances of bugs
+                if (decodeURIComponent(run.T).toLowerCase() === "seq") {
+                    tableStartY = text.y; // Stores the start position of the table
+                }
+            });
+        });
+        console.log(tableStartY)
+    });
+
+    // console.log("raw data ==>", pdfData);
     extractJSON(pdfData);
     extractRawText(pdfData);
-    extractFieldTypes(pdfData);
 });
 
 pdfParser.loadPDF(testPdf);
@@ -36,9 +59,3 @@ function extractJSON(pdfData) {
     console.log("JSON saved for debugging");
 }
 
-function extractFieldTypes(pdfData) {
-    // not working
-    fs.writeFileSync("fields.json", JSON.stringify(pdfParser.getAllFieldsTypes()), () => {
-        console.log("Field types saved to fields.json");
-    });
-}
