@@ -1,6 +1,5 @@
 import fs from "fs";
 import PDFParser from "pdf2json";
-import { decode } from "punycode";
 const pdfParser = new PDFParser();
 
 // TEST PDF PATH
@@ -13,13 +12,14 @@ pdfParser.on("pdfParser_dataError", (errData) =>
 // on("pdfParser_dataReady") is called when the parser finishes parsing the PDF
 pdfParser.on("pdfParser_dataReady", (pdfData) => {
     const pages = pdfData.Pages; // Each page in the PDF
-    const tableRows = [];
-    // Tells the parser when the table starts to avoid the unwanted information. Ex. Address, Shipper Address, etc. Initialized to false
-    let isTableStarted = false;
+    const tableRows = []; // Stores all the extracted row Data in a JSON object --> each row/object represents one part number.
+
+    const TOLERANCE = 0.1; // Small tolerance value to handle floating-point imprecision. Ex. If one yCoordinate for one of the values on a row is 8.022 vs. 8.023
 
     // Looping through each page
     pages.forEach(page => {
         let tableStartY;
+        let headers = [];
 
         // Looks for "Seq" in the tables headers (at the top right of each packing list) signifying the start of the table
         page.Texts.forEach(text => {
@@ -32,7 +32,22 @@ pdfParser.on("pdfParser_dataReady", (pdfData) => {
                 }
             });
         });
-        console.log(tableStartY)
+        console.log("Table starts at y = " , tableStartY);
+        
+        // Extract Column header names
+        page.Texts.forEach(text => {
+            if (Math.abs(text.y - tableStartY) < TOLERANCE) { // "If it's the header row"
+                text.R.forEach(run => {
+                    headers.push(decodeURIComponent(run.T)); // Store column name in "headers" array
+                });
+            }
+        });
+        console.log("Header column names: ", headers);
+
+        // Extract Table Row Data
+        page.Texts.forEach(text => {
+            
+        });
     });
 
     // console.log("raw data ==>", pdfData);
@@ -58,4 +73,3 @@ function extractJSON(pdfData) {
     fs.writeFileSync("debug.json", JSON.stringify(pdfData, null, 2));
     console.log("JSON saved for debugging");
 }
-
