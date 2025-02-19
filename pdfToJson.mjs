@@ -18,8 +18,10 @@ pdfParser.on("pdfParser_dataReady", (pdfData) => {
 
     // Looping through each page
     pages.forEach(page => {
-        let tableStartY;
-        let headers = [];
+        let tableStartY; // Stores the Y coordinate for the header row of the table
+        let headers = []; // Stores the header names within the table
+        let currentRow = []; // Stores the text for the current row being iterated through
+        let lastRowY = null; // Stores Y coordinate of the last detected row
 
         // Looks for "Seq" in the tables headers (at the top right of each packing list) signifying the start of the table
         page.Texts.forEach(text => {
@@ -36,7 +38,7 @@ pdfParser.on("pdfParser_dataReady", (pdfData) => {
         
         // Extract Column header names
         page.Texts.forEach(text => {
-            if (Math.abs(text.y - tableStartY) < TOLERANCE) { // "If it's the header row"
+            if (Math.abs(text.y - tableStartY) < TOLERANCE) { // "If it's the header row" "within +- 0.1"
                 text.R.forEach(run => {
                     headers.push(decodeURIComponent(run.T)); // Store column name in "headers" array
                 });
@@ -46,9 +48,31 @@ pdfParser.on("pdfParser_dataReady", (pdfData) => {
 
         // Extract Table Row Data
         page.Texts.forEach(text => {
-            
+            const textValue = decodeURIComponent(text.R[0].T);
+            const yCoord = Math.round(text.y * 100) / 100; // Rounds to 2 decimal places
+
+            // Check if text belongs to a new row (if its a new part number)
+            // "If last row = null (if the table hasnt started yet) |OR| If the yCoordinate for the text is larger than the tolerance value (0.1), start a new row"
+            if (lastRowY === null || Math.abs(yCoord - lastRowY) > TOLERANCE) {
+                // New row(part) detected
+                if (currentRow.length > 0) { // If the currentRow variable already has data saved to it (for an old part's row), start a new row for the new part detected
+                    // Save the currentRow before starting a new one
+                    tableRows.push(currentRow);
+                }
+                currentRow = []; // Reset currentRow for new row data
+                lastRowY = yCoord; // Save previous rows yCoordinate
+            }
+            currentRow.push(textValue); // Save text to the current row
         });
+
+        // Save last row after the loop ends
+        if (currentRow.length > 0) {
+            tableRows.push(currentRow);
+        }
     });
+
+    fs.writeFileSync("rows.json", JSON.stringify(tableRows, null, 2));
+    console.log("Table rows saved to rows.json");
 
     // console.log("raw data ==>", pdfData);
     extractJSON(pdfData);
