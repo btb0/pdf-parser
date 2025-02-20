@@ -51,6 +51,9 @@ pdfParser.on("pdfParser_dataReady", (pdfData) => {
             const textValue = decodeURIComponent(text.R[0].T);
             const yCoord = Math.round(text.y * 100) / 100; // Rounds to 2 decimal places
 
+            // If Text is above header row (before the table starts), return.
+            if (text.y <= tableStartY) return;
+
             // Check if text belongs to a new row (if its a new part number)
             // "If last row = null (if the table hasnt started yet) |OR| If the yCoordinate for the text is larger than the tolerance value (0.1), start a new row"
             if (lastRowY === null || Math.abs(yCoord - lastRowY) > TOLERANCE) {
@@ -62,6 +65,8 @@ pdfParser.on("pdfParser_dataReady", (pdfData) => {
                 currentRow = []; // Reset currentRow for new row data
                 lastRowY = yCoord; // Save previous rows yCoordinate
             }
+            // TODO: Add case to check if sequence number exits --> so backorder parts are not added
+            
             currentRow.push(textValue); // Save text to the current row
         });
 
