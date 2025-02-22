@@ -65,8 +65,9 @@ pdfParser.on("pdfParser_dataReady", (pdfData) => {
                 currentRow = []; // Reset currentRow for new row data
                 lastRowY = yCoord; // Save previous rows yCoordinate
             }
-            // TODO: Add case to check if sequence number exits --> so backorder parts are not added
             
+            // TODO: Add case to check if sequence number exits --> so backorder parts are not added
+
             currentRow.push(textValue); // Save text to the current row
         });
 
