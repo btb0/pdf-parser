@@ -23,7 +23,7 @@ pdfParser.on("pdfParser_dataReady", (pdfData) => {
         let currentRow = []; // Stores the text for the current row being iterated through
         let lastRowY = null; // Stores Y coordinate of the last detected row
 
-        // Looks for "Seq" in the tables headers (at the top right of each packing list) signifying the start of the table
+        // Looks for "Seq" in the tables headers (at the top left of each packing list) signifying the start of the table
         page.Texts.forEach(text => {
             // Each text object in the extracted JSON has an "R" array, which contains the actual text content --> the text itself, as well as other information such as 
             // style index, font weight etc. "R" stands for runs of text. So forEach run...
