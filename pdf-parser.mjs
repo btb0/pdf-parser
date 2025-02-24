@@ -35,13 +35,13 @@ class PackingListParser {
         return tableStartY;
     }
 
-    // Method for finding and organizing table column headers
+    // Method for finding and organizing table column headers. Looks for all text elements on the same Y coordinate as the table start
     getHeaders(page, tableStartY) {
         const headers = []; // Stores teh header names within the table
 
         page.Texts.forEach(text => {
             // Check if text is within the header row within +- 0.1
-            if (Math.abs(text.y - tableStartY) < TOLERANCE) {
+            if (Math.abs(text.y - tableStartY) < this.TOLERANCE) {
                 // Stores each columns name and xPosition
                 headers.push({
                     text: decodeURIComponent(text.R[0].T),
