@@ -4,6 +4,19 @@
 import fs from "fs";
 import PDFParser from "pdf2json";
 
+// TODO: Add fallback / refactor how header validation works. Currently skips page if validation fails rather than trying to work around it.
+
+// Possible vertical line parsing?
+    // Look for table start. can probably just use the findTableStart method
+    // Get each X coordinate for every vertical line in the table and add to an array
+    // convert array to a Set to remove duplicate coordinates
+    // now have all x coordinates for vertical lines
+        // first two vertical lines are for first column
+        // line 2 and 3 for second column
+        // line 3 and 4 for third column
+        // and so on...
+        // save x coord boundaries to each header as a boundary property
+        // pray this works lol
 class PackingListParser {
     constructor() {
         // this.pdfParser = new PDFParser();  CURRENTLY COMMENTED OUT AS THE PDF PARSER INSTANCE IS BEING CREATED IN THE parsePdf METHOD INSTEAD
