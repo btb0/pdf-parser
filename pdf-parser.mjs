@@ -27,7 +27,7 @@ class PackingListParser {
                 // Each "run" contains "T" which is the actual text itself. Converting to lowercase and decoding just to limit the chances of bugs.
                 const textContent = decodeURIComponent(run.T).toLowerCase();
                 if (textContent === 'seq') {
-                    tableStartY = text.y; // Stores teh start position of the table
+                    tableStartY = text.y; // Stores the start position of the table
                 }
             });
         });
@@ -37,10 +37,10 @@ class PackingListParser {
 
     // Method for finding and organizing table column headers. Looks for all text elements on the same Y coordinate as the table start
     getHeaders(page, tableStartY) {
-        const headers = []; // Stores teh header names within the table
+        const headers = []; // Stores the header names within the table
 
         page.Texts.forEach(text => {
-            // Check if text is within the header row within +- 0.1
+            // Check if text is in the header row by checking if the Y posistion is within +- 0.1
             if (Math.abs(text.y - tableStartY) < this.TOLERANCE) {
                 // Stores each columns name and xPosition
                 headers.push({
@@ -265,7 +265,7 @@ class PackingListParser {
             console.log(`Successfully saved ${allParts.length} parts to ${jsonOutputPath}!`);
         } catch (err) {
             console.error('Error saving results', err);
-            throw error;
+            throw err;
         }
     }
 }
