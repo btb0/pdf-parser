@@ -95,6 +95,9 @@ class PackingListParser {
             }
         });
 
+        console.log('header positions:')
+        headers.forEach(header => console.log(`${header.text}: ${header.xPos}`))
+
         // Process each sorted text element
         for (const text of sortedTexts) {
             // If text is above header row (before the table starts), skip to the next text element
@@ -103,6 +106,10 @@ class PackingListParser {
             const textValue = decodeURIComponent(text.R[0].T);
             // Round to two decimal places
             const yPos = Math.round(text.y * 100) / 100;
+
+            //TODO : DELETE THESE FEW ROWS FOR DEBUGGING PURPOSES
+            const xPos = text.x;
+            console.log(`Text: ${textValue}: xPos=${xPos} -- yPos=${yPos}`)
 
             // Check if text belongs to a new row (if it is a new part number)
             // "If last row = null (if the table has not started yet) |OR| if the yCoordinate difference is larger than the tolerance value, start a new row"
@@ -219,7 +226,7 @@ class PackingListParser {
             // Parse rows on the current page
             const parts = await this.getRows(page, tableStartY, headers);
             // Add parts from this page to the overall collection of all parts
-            allParts.push({...parts});
+            allParts.push(...parts);
             
             console.log(`Found ${parts.length} parts on page ${i + 1}`);
         }
@@ -238,10 +245,12 @@ class PackingListParser {
             this.EXPECTED_HEADERS.forEach(header => {
                 partFormat[header] = '';
             });
+            // console.log(this.EXPECTED_HEADERS);
+            // console.log(partFormat);
 
             // Copy over the actual existing values using bracket notation
-            Object.keys(allParts).forEach(key => {
-                partFormat[key] = allParts[key];
+            Object.keys(part).forEach(key => {
+                partFormat[key] = part[key];
             });
 
             return partFormat;
@@ -253,7 +262,7 @@ class PackingListParser {
         try {
             // Write to file
             fs.writeFileSync(jsonOutputPath, JSON.stringify(allParts, null, 2));
-            console.log(`Successfully saved ${allParts.length} pages to ${jsonOutputPath}!`);
+            console.log(`Successfully saved ${allParts.length} parts to ${jsonOutputPath}!`);
         } catch (err) {
             console.error('Error saving results', err);
             throw error;
