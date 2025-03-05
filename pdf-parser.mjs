@@ -20,7 +20,9 @@ import PDFParser from "pdf2json";
 class PackingListParser {
     constructor() {
         // this.pdfParser = new PDFParser();  CURRENTLY COMMENTED OUT AS THE PDF PARSER INSTANCE IS BEING CREATED IN THE parsePdf METHOD INSTEAD
-        this.TOLERANCE = 0.1; // Small tolerance value to handle floating-point imprecision. Ex. If one yCoordinate for one of the values on a row is 8.022 vs. 8.023
+        this.TOLERANCE = 0.1; // Small tolerance value to handle floating-point imprecision. Ex. If one yCoordinate for one of the values on a row is 8.022 vs. 8.
+        
+        this.VERTICAL_LINE_BUFFER = 0.2; // Specific buffer used for handling vertical line detection
 
         // Each header (column) for every part
         this.EXPECTED_HEADERS = [
@@ -84,6 +86,32 @@ class PackingListParser {
 
         // There are no missing headers. Every EXPECTED_HEADER is present in the headerTexts array.
         return true;
+    }
+
+    // Method for creating column boundaries
+    getTableStructure(page, tableStartY) {
+        const verticalLines = []; // Stores the vertical lines X posistions
+
+        // Checks if the page has the VLines property, AND that it is an array of data
+        if (page.VLines && Array.isArray(page.VLines)) {
+            // Filter for vertical lines that are close to / within the table's boundaries
+            const tableLines = page.VLines.filter(line =>
+                // Look for lines starting just above or at the start of the table AND...
+                line.y >= (tableStartY - this.VERTICAL_LINE_BUFFER) &&
+                // for lines that extend downwards through the table
+                line.y + line.l > tableStartY // line.y = lines starting Y coordinate  -- line.l = length of line
+            );
+            // Remove duplicates using Set / and then converting back to array using the spread 
+            const lineCoordinatesX = [... new Set(tableLines.map(line => line.x))];
+
+            // TODO : DELETE CONSOLE LOG -- log detected lines for debugging purposes
+            console.log('Detected Vertical Lines in Table: ', lineCoordinatesX);
+
+            // Sort the line coordinates from left to right
+            return lineCoordinatesX.sort((a, b) => a - b);
+        }
+        // If no lines found, return empty array.
+        return [];
     }
 
     // Extract Table Row Data
