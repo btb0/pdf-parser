@@ -6,6 +6,9 @@ import PDFParser from "pdf2json";
 
 // TODO: Add fallback / refactor how header validation works. Currently skips page if validation fails rather than trying to work around it.
 
+// TODO: finding closest "boundary"? or closest vertical line?
+
+// oops
 // Possible vertical line parsing?
     // Look for table start. can probably just use the findTableStart method
     // Get each X coordinate for every vertical line in the table and add to an array
@@ -17,6 +20,9 @@ import PDFParser from "pdf2json";
         // and so on...
         // save x coord boundaries to each header as a boundary property
         // pray this works lol
+
+// Idea for error fallback if the table cannot assign headers based on x coordinate boundaries for the vertical lines
+    // EX - if array is called "boundaries" - take the parsed vertical lines X positions into an array, and just assign boundaries[0] and boundaries[1] to the first header, boundaries[1] boundaries[2] to the next header and so on..
 class PackingListParser {
     constructor() {
         // this.pdfParser = new PDFParser();  CURRENTLY COMMENTED OUT AS THE PDF PARSER INSTANCE IS BEING CREATED IN THE parsePdf METHOD INSTEAD
@@ -54,9 +60,16 @@ class PackingListParser {
     getHeaders(page, tableStartY) {
         const headers = []; // Stores the header names within the table
 
+        //oops
+        // Get vertical table lines tp create boundaries
+        const tableLines = this.getTableStructure(page, tableStartY);
+
         page.Texts.forEach(text => {
             // Check if text is in the header row by checking if the Y posistion is within +- 0.1
             if (Math.abs(text.y - tableStartY) < this.TOLERANCE) {
+                // Find which vertical line boundary this text fits in
+                const headerPositionX = this.findClosestBoundary(text.x, tableLines);
+
                 // Stores each columns name and xPosition
                 headers.push({
                     text: decodeURIComponent(text.R[0].T),
@@ -66,7 +79,9 @@ class PackingListParser {
         });
 
         // Sort the headers based on the xPosition from left to right (smallest xcoordinate to biggest)
-        return headers.sort((a, b) => a.xPos - b.xPos);
+        const sortedHeaders = headers.sort((a, b) => a.xPos - b.xPos);
+
+        return sortedHeaders;
     }
 
     // Method to verify all expected headers are present.
@@ -88,9 +103,23 @@ class PackingListParser {
         return true;
     }
 
+    // Helper method - finds closest header boundary by comparing distances
+    findClosestBoundary(textX, boundaries) {
+        // TODO: add better error handling -> reduce will throw an error if boundaries array is empty
+        if (boundaries.length === 0) throw new Error('The boundaries array cannot be empty');
+
+        // iterates each boundary and checks which is closest to the text's X coord
+        return boundaries.reduce((closest, boundary) =>
+            // "If the absolute value of the text's X position minus the current boundary being iterated through is LESS than the absolute value of text's X position minus the current closest value" --> return whichever has the lowest amount
+            Math.abs(textX - boundary) < Math.abs(textX - closest) ? boundary : closest
+        );
+    }
+    
+    
+
     // Method for creating column boundaries
     getTableStructure(page, tableStartY) {
-        const verticalLines = []; // Stores the vertical lines X posistions
+        const verticalLines = []; // Stores the vertical line's X posistions
 
         // Checks if the page has the VLines property, AND that it is an array of data
         if (page.VLines && Array.isArray(page.VLines)) {
