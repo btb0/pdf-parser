@@ -8,7 +8,7 @@ import PDFParser from "pdf2json";
 
 // TODO: finding closest "boundary"? or closest vertical line?
 
-// oops
+// oops TODO: Delete oops comments / blocks if needed
 // Possible vertical line parsing?
     // Look for table start. can probably just use the findTableStart method
     // Get each X coordinate for every vertical line in the table and add to an array
@@ -68,7 +68,8 @@ class PackingListParser {
             // Check if text is in the header row by checking if the Y posistion is within +- 0.1
             if (Math.abs(text.y - tableStartY) < this.TOLERANCE) {
                 // Find which vertical line boundary this text fits in
-                const headerPositionX = this.findClosestBoundary(text.x, tableLines);
+        
+                // const headerPositionX = this.findClosestBoundary(text.x, tableLines); // oops TODO : DELETE LINE MAYBE?
 
                 // Stores each columns name and xPosition
                 headers.push({
@@ -80,6 +81,44 @@ class PackingListParser {
 
         // Sort the headers based on the xPosition from left to right (smallest xcoordinate to biggest)
         const sortedHeaders = headers.sort((a, b) => a.xPos - b.xPos);
+
+        //oops
+        // Assign column boundaries tp each header utilizing the table's vertical lines
+        // *tableLines is the array of all X coordinates for each unique vertical line in the packing list's table*
+        if (tableLines.length > 0) {
+            // Assign boundaries to each header based on their position between vertical lines
+            for (let i = 0; i < sortedHeaders.length; i++) {
+                let leftBoundary = 0; // Default left boundary is far left side of page
+                let rightBoundary = 100; // Default left boundary is far right side of 
+                
+                // Find the closest vertical line to the **LEFT** of the header currently being iterated through
+                for (const line of tableLines) {
+                    // line < sortedHeaders[i].xPos --> ensures only lines to the left of the header's X coordinate are considered
+                    // line > leftBoundary --> looks for the CLOSEST vertical line to the left of the header.
+                    // line > leftBoundary will update with a closer value as it iterates through every line that is to the left of the header.
+                    if (line < sortedHeaders[i].xPos && line > leftBoundary) {
+                        leftBoundary = line; // assign the current line being iterated through to the leftBoundary
+                    }
+                }
+
+                // Find the closest vertical line to the **RIGHT** of the header currently being iterated through
+                for (const line of tableLines) {
+                    if (line > sortedHeaders[i].xPos && line < rightBoundary) {
+                        rightBoundary = line;
+                    }
+                }
+
+                // Assign the boundaries to the header
+                sortedHeaders[i].leftBoundary = leftBoundary;
+                sortedHeaders[i].rightBoundary = rightBoundary;
+            }
+
+            // TODO : DELETE THIS CONSOLE LOG LATER - only for debugging purposes
+            console.log('Headers with Boundaries: ');
+            sortedHeaders.forEach(header => {
+                console.log(`${header.text}: Position:${header.xPos}, Boundaries: [${header.leftBoundary}, ${header.rightBoundary}]`);
+            });
+        }
 
         return sortedHeaders;
     }
@@ -103,16 +142,50 @@ class PackingListParser {
         return true;
     }
 
-    // Helper method - finds closest header boundary by comparing distances
-    findClosestBoundary(textX, boundaries) {
-        // TODO: add better error handling -> reduce will throw an error if boundaries array is empty
-        if (boundaries.length === 0) throw new Error('The boundaries array cannot be empty');
+    // TODO: TEMPORARILY COMMENTED OUT FOR TESTING PURPOSES
+    // // Helper method - finds closest header boundary by comparing distances
+    // findClosestBoundary(textX, boundaries) {
+    //     // TODO: add better error handling -> reduce will throw an error if boundaries array is empty
+    //     if (boundaries.length === 0) throw new Error('The boundaries array cannot be empty');
 
-        // iterates each boundary and checks which is closest to the text's X coord
-        return boundaries.reduce((closest, boundary) =>
-            // "If the absolute value of the text's X position minus the current boundary being iterated through is LESS than the absolute value of text's X position minus the current closest value" --> return whichever has the lowest amount
-            Math.abs(textX - boundary) < Math.abs(textX - closest) ? boundary : closest
-        );
+    //     // iterates each boundary and checks which is closest to the text's X coord
+    //     return boundaries.reduce((closest, boundary) =>
+    //         // "If the absolute value of the text's X position minus the current boundary being iterated through is LESS than the absolute value of text's X position minus the current closest value" --> return whichever has the lowest amount
+    //         Math.abs(textX - boundary) < Math.abs(textX - closest) ? boundary : closest
+    //     );
+    // }
+    
+    // Helper method - finds which header a text element belongs to based on column boundaries
+    findHeaderForText(text, headers) {
+        // <-- PRIMARY METHOD - Most Accurate ---> //
+        // Check for valid header-- if text fits in boundaries of any given header
+        for (const header of headers) {
+            // If text is between the header's left and right boundaries
+            if (text.x >= header.leftBoundary && text.x < header.rightBoundary) {
+                return header;
+            }
+        }
+
+        // TODO: Possibly create better fallback?
+        // <-- FALLBACK METHOD - Has a few errors with Part No being too close to Seq --> //
+
+        // Check which column / header the text belongs to by finding the closest header based on the X coordinate
+        let closestHeader = null;
+        let minDistance = Infinity; // Start with Infinity so that the first calculated distance is always smaller which ensures that minDistance is always updated on the first iteration
+
+        for (const header of headers) {
+            // Distance = absolute difference (value remaining after subtracting) of the text's X position minus the header's X position
+            const distance = Math.abs(text.x - header.xPos);
+            // If the distance is less than the last saved distance...
+            if (distance < minDistance) {
+                minDistance = distance; // Update minDistance to the new smallest distance
+                closestHeader = header; // Save the current header as the closest one to this text being iterated through in sortedTexts
+            }
+        }
+        // Log when fallback method is being used to debug
+        console.log(`Using fallback method for assigning header to text: '${decodeURIComponent(text.R[0].T)}' at x=${text.x}`);
+
+        return closestHeader;
     }
     
     
@@ -137,7 +210,9 @@ class PackingListParser {
             console.log('Detected Vertical Lines in Table: ', lineCoordinatesX);
 
             // Sort the line coordinates from left to right
-            return lineCoordinatesX.sort((a, b) => a - b);
+            const sortedLines = lineCoordinatesX.sort((a, b) => a - b);
+
+            return sortedLines;
         }
         // If no lines found, return empty array.
         return [];
@@ -178,8 +253,8 @@ class PackingListParser {
             const yPos = Math.round(text.y * 100) / 100;
 
             //TODO : DELETE THESE FEW ROWS FOR DEBUGGING PURPOSES
-            const xPos = text.x;
-            console.log(`Text: ${textValue}: xPos=${xPos} -- yPos=${yPos}`)
+            // const xPos = text.x;
+            // console.log(`Text: ${textValue}: xPos=${xPos} -- yPos=${yPos}`)
 
             // Check if text belongs to a new row (if it is a new part number)
             // "If last row = null (if the table has not started yet) |OR| if the yCoordinate difference is larger than the tolerance value, start a new row"
@@ -194,25 +269,29 @@ class PackingListParser {
                 lastRowY = yPos; // Save previous row's Y position/coordinate
             }
 
-            // Check which column / header the text belongs to by finding the closest header based on the X coordinate
-            let closestHeader = null;
-            let minDistance = Infinity; // Start with Infinity so that the first calculated distance is always smaller which ensures that minDistance is always updated on the first iteration
+            // TODO oops - commented out currently -- trying new method
+            // // Check which column / header the text belongs to by finding the closest header based on the X coordinate
+            // let closestHeader = null;
+            // let minDistance = Infinity; // Start with Infinity so that the first calculated distance is always smaller which ensures that minDistance is always updated on the first iteration
 
-            // Loop through each header to compare it's x position with the text's X position. For each header in the headers array..
-            for (const header of headers) {
-                // Distance = absolute difference (value remaining after subtracting) of the text's X position minus the header's X position
-                const distance = Math.abs(text.x - header.xPos);
-                // If the distance is less than the last saved distance...
-                if (distance < minDistance) {
-                    minDistance = distance; // Update minDistance to the new smallest distance
-                    closestHeader = header; // Save the current header as the closest one to this text being iterated through in sortedTexts
-                }
-            }
+            // // Loop through each header to compare it's x position with the text's X position. For each header in the headers array..
+            // for (const header of headers) {
+            //     // Distance = absolute difference (value remaining after subtracting) of the text's X position minus the header's X position
+            //     const distance = Math.abs(text.x - header.xPos);
+            //     // If the distance is less than the last saved distance...
+            //     if (distance < minDistance) {
+            //         minDistance = distance; // Update minDistance to the new smallest distance
+            //         closestHeader = header; // Save the current header as the closest one to this text being iterated through in sortedTexts
+            //     }
+            // }
+
+            // Use findHeaderForText() to find which Header this text belongs to
+            const matchingHeader = this.findHeaderForText(text, headers);
 
             // If a matching header is found...
-            if (closestHeader) {
+            if (matchingHeader) {
                 // Using bracket notation, store the text content in the currentRow Object using the header text as the key, and the text as the key.
-                currentRow[closestHeader.text] = textValue;
+                currentRow[matchingHeader.text] = textValue;
             }
         }
 
@@ -342,7 +421,7 @@ class PackingListParser {
 
 async function main() {
     const parser = new PackingListParser();
-    await parser.parsePDF('TESTPACKINGLIST.pdf', 'testytest.json');
+    await parser.parsePDF('TESTPACKINGLIST.pdf', 'testytesttest.json');
 }
 
 main().catch(console.error);
