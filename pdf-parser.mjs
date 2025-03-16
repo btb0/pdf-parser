@@ -6,20 +6,9 @@ import PDFParser from "pdf2json";
 
 // TODO: Add fallback / refactor how header validation works. Currently skips page if validation fails rather than trying to work around it.
 
-// TODO: finding closest "boundary"? or closest vertical line?
+//TODO: SEQTEST - USED FOR MARKING ANY TESTING FILTERING OUT BACKORDER - delete if needed
 
 // oops TODO: Delete oops comments / blocks if needed
-// Possible vertical line parsing?
-    // Look for table start. can probably just use the findTableStart method
-    // Get each X coordinate for every vertical line in the table and add to an array
-    // convert array to a Set to remove duplicate coordinates
-    // now have all x coordinates for vertical lines
-        // first two vertical lines are for first column
-        // line 2 and 3 for second column
-        // line 3 and 4 for third column
-        // and so on...
-        // save x coord boundaries to each header as a boundary property
-        // pray this works lol
 
 // Idea for error fallback if the table cannot assign headers based on x coordinate boundaries for the vertical lines
     // EX - if array is called "boundaries" - take the parsed vertical lines X positions into an array, and just assign boundaries[0] and boundaries[1] to the first header, boundaries[1] boundaries[2] to the next header and so on..
@@ -240,9 +229,6 @@ class PackingListParser {
             }
         });
 
-        console.log('header positions:')
-        headers.forEach(header => console.log(`${header.text}: ${header.xPos}`))
-
         // Process each sorted text element
         for (const text of sortedTexts) {
             // If text is above header row (before the table starts), skip to the next text element
@@ -251,10 +237,6 @@ class PackingListParser {
             const textValue = decodeURIComponent(text.R[0].T);
             // Round to two decimal places
             const yPos = Math.round(text.y * 100) / 100;
-
-            //TODO : DELETE THESE FEW ROWS FOR DEBUGGING PURPOSES
-            // const xPos = text.x;
-            // console.log(`Text: ${textValue}: xPos=${xPos} -- yPos=${yPos}`)
 
             // Check if text belongs to a new row (if it is a new part number)
             // "If last row = null (if the table has not started yet) |OR| if the yCoordinate difference is larger than the tolerance value, start a new row"
