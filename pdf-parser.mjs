@@ -8,7 +8,8 @@ import PDFParser from "pdf2json";
 
 //TODO: SEQTEST - USED FOR MARKING ANY TESTING FILTERING OUT BACKORDER - delete if needed
 
-// oops TODO: Delete oops comments / blocks if needed
+// oops TODO: Delete oops comments / blocks if 
+// backorderCheck TODO: delete backorderCheck blocks if needed
 
 // Idea for error fallback if the table cannot assign headers based on x coordinate boundaries for the vertical lines
     // EX - if array is called "boundaries" - take the parsed vertical lines X positions into an array, and just assign boundaries[0] and boundaries[1] to the first header, boundaries[1] boundaries[2] to the next header and so on..
@@ -24,6 +25,10 @@ class PackingListParser {
             'Seq', 'Part No', 'Part Desc', 'Qty', 'Case No', 
             'Order No', 'Ref Order#', 'Car Rental', 'Remark', 'VIN #'
         ];
+
+        // backorderCheck
+        // Flag to track when back ordered parts are being processed
+        this.IS_BACKORDER = false;
     }
 
     // Method to find the table within the PDF
@@ -177,7 +182,11 @@ class PackingListParser {
         return closestHeader;
     }
     
-    
+    // backorderCheck
+    // Helper method - detects if a text content is "BACK ORDER" (everything below the word "BACK ORDER" in the PDFs are backordered parts)
+    checkBackOrder(text) {
+        return text.trim().toUpperCase().includes('BACK ORDER'); // Returns true / false value if text is backorder
+    }
 
     // Method for creating column boundaries
     getTableStructure(page, tableStartY) {
@@ -212,7 +221,12 @@ class PackingListParser {
         const tableRows = []; // Stores each row in an array as JavaScript objects. One object = one part
         let currentRow = {}; // Stores the text for the current row being iterated through
         let lastRowY = null; // Stores Y coordinate for the last detected row
-        
+
+        // backorderCheck
+        // I am not sure if this is needed or not. currently commenting out if run into bugs
+        // Reset backorder flag back to false at the beginning of each page.
+        // this.IS_BACKORDER = false;
+    
         // Sort all text elements by top to bottom and then within each row left to right
         const sortedTexts = page.Texts.sort((a, b) => {
             // Rounds y position to 2 decimal places
@@ -238,18 +252,44 @@ class PackingListParser {
             // Round to two decimal places
             const yPos = Math.round(text.y * 100) / 100;
 
+            // backorderCheck
+            if (this.checkBackOrder(textValue)) {
+                console.log('Found Backorder Section - skipping remaining rows');
+                this.IS_BACKORDER = true;
+                break; // Exit the loop entirely once we hit the back order section.
+            }
+
+            // backorderCheck
             // Check if text belongs to a new row (if it is a new part number)
             // "If last row = null (if the table has not started yet) |OR| if the yCoordinate difference is larger than the tolerance value, start a new row"
             if (lastRowY === null || Math.abs(yPos - lastRowY) > this.TOLERANCE) {
                 // If currentRow already has data saved to it, start a new row for the new part detected
                 if (Object.keys(currentRow).length > 0) {
-                    // Save the row before starting a new one
-                    // Spread operator is used to essentially create a copy as otherwise it would store a reference that would be overwritten each time the loop iterates.
-                    tableRows.push({...currentRow});
+                    // Only add rows that have a Seq value. Backorder values do not have a sequence number. It just becomes an empty string. Though if its not going to parse them at all, i guess it will be nothing once this works lol.
+                    if (currentRow['Seq'] && currentRow['Seq'].trim() !== '' && !isNaN(parseInt(currentRow['Seq']))) {
+                        // Save the row before starting a new one
+                        // Spread operator is used to essentially create a copy as otherwise it would store a reference that would be overwritten each time the loop iterates.
+                        tableRows.push({...currentRow});
+                    } else {
+                        console.log('Skipping row without Seq Value: ', currentRow);
+                    }
                 }
                 currentRow = {}; // Reset currentRow for new row data
                 lastRowY = yPos; // Save previous row's Y position/coordinate
             }
+
+            // // Check if text belongs to a new row (if it is a new part number)
+            // // "If last row = null (if the table has not started yet) |OR| if the yCoordinate difference is larger than the tolerance value, start a new row"
+            // if (lastRowY === null || Math.abs(yPos - lastRowY) > this.TOLERANCE) {
+            //     // If currentRow already has data saved to it, start a new row for the new part detected
+            //     if (Object.keys(currentRow).length > 0) {
+            //         // Save the row before starting a new one
+            //         // Spread operator is used to essentially create a copy as otherwise it would store a reference that would be overwritten each time the loop iterates.
+            //         tableRows.push({...currentRow});
+            //     }
+            //     currentRow = {}; // Reset currentRow for new row data
+            //     lastRowY = yPos; // Save previous row's Y position/coordinate
+            // }
 
             // TODO oops - commented out currently -- trying new method
             // // Check which column / header the text belongs to by finding the closest header based on the X coordinate
@@ -277,10 +317,17 @@ class PackingListParser {
             }
         }
 
+        // backorderCheck
         // Save the last row after the loop ends
-        if (Object.keys(currentRow).length > 0) {
+        // also checks if last row has a seq value and that it is not an empty string 
+        if (Object.keys(currentRow).length > 0 && currentRow['Seq'] && currentRow['Seq'].trim() !== '') {
             tableRows.push({...currentRow});
         }
+
+        // // Save the last row after the loop ends
+        // if (Object.keys(currentRow).length > 0) {
+        //     tableRows.push({...currentRow});
+        // }
 
         // Return processed/parsed rows
         return tableRows;
@@ -403,7 +450,14 @@ class PackingListParser {
 
 async function main() {
     const parser = new PackingListParser();
-    await parser.parsePDF('TESTPACKINGLIST.pdf', 'testytesttest.json');
+    // await parser.parsePDF('TESTPACKINGLIST.pdf', 'testytesttest.json');
+    
+    // NEW HERE
+    const testFiles = ['test1.pdf', 'test2.pdf', 'test3.pdf', 'test4.pdf']
+    for (const file of testFiles) {
+        await parser.parsePDF(file, `testJSON_${file}.json`)
+    }
+    // NEW HERE
 }
 
 main().catch(console.error);
